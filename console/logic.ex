@@ -7,18 +7,25 @@ sequence facts = {}
 sequence questions = {}
 sequence boundVariables = {}
 
+-----------------------
+integer pointer = 1
+-----------------------
+
 main()
 
 -----------------------------------------------------------------------------
 
 procedure main()
 
-  createDatabase()
+  newWorld()
 
-  rules()
+  --createDatabase()
 
-  onlyFacts()
-  
+  --rules()
+  --onlyFacts()
+
+
+  -- Set pointer
   --firstSession()
   --line()
   --secondSession()
@@ -27,19 +34,266 @@ procedure main()
   
 end procedure
 
+-------------------------------------------------
+
+procedure newWorld()
+
+  addFact({"woman","mia"})
+  addFact({"woman","jody"})
+  addFact({"woman","yolanda"})
+  addFact({"girl","annie"})
+
+  addFact({"playsAirGuitar","jody"})
+  addFact({"party"})
+  addFact({"woman","mia"})
+
+  addFact({"loves","john","mary"})
+  addFact({"loves","peter","mary"})
+
+  --addRule({{"loves","john","X"},{{"woman","X"},{"blabla","X"}}})
+
+  sequence question = {"loves","X","X"}
+
+  for i=1 to 6 do
+    sequence result = lookFor(question)
+    showResult(result)
+  end for
+
+end procedure
+
+function lookFor(sequence question)
+
+  sequence varsToFind = getVarsToFind(question)
+
+  boundVariables = {}
+
+  for i=pointer to length(facts) do
+
+    -- Fact
+    if facts[i][1] = 1 then
+
+      if unify(facts[i][2],question) then
+        pointer = i + 1
+        if 0 = length(varsToFind) then
+          return {"b",1}
+        else
+          return {"v",getVars(varsToFind)}
+        end if
+      end if
+
+    -- Rule
+    elsif facts[i][1] = 2 then
+
+      if unify(facts[i][2][1],question) then
+        sequence questions = facts[i][2][2]
+      end if
+
+    end if
+
+  end for
+
+  return {"b",0}
+
+end function
+
+function unify(sequence a, sequence b)
+
+  -- Test length
+  if length(a) = length(b) then
+
+    -- Already the same
+    if equal(a,b) then
+      return 1
+    else
+
+      sequence tempVars = {}
+
+      for i=1 to length(a) do
+
+        -- X : 12
+        if isVariable(a[i]) and (not isVariable(b[i])) then
+
+          sequence val = getBoundValue(tempVars,a[i])
+          if equal(val,{}) then
+            tempVars = append(tempVars,{a[i], b[i]})
+          elsif not equal(val[2],b[i]) then
+            return 0
+          end if
+
+        -- 12 : X
+        elsif isVariable(b[i]) and (not isVariable(a[i])) then
+
+          sequence val = getBoundValue(tempVars,b[i])
+          if equal(val,{}) then
+            tempVars = append(tempVars,{b[i], a[i]})
+          elsif not equal(val[2],a[i]) then
+            return 0
+          end if
+
+        -- X : Y, X : X
+        elsif isVariable(a[i]) and isVariable(a[i]) then
+
+          sequence valA = getBoundValue(tempVars,a[i])
+          sequence valB = getBoundValue(tempVars,b[i])
+
+          if equal(valA,{}) and equal(valB,{}) then
+            -- ?
+          elsif equal(valA,{}) and not equal(valB,{}) then
+            tempVars = append(tempVars,{a[i],valB[2]})
+          elsif not equal(valA,{}) and equal(valB,{}) then
+            tempVars = append(tempVars,{b[i],valA[2]})
+          elsif not equal(valA,{}) and not equal(valB,{}) then
+            if not equal(a[i],b[i]) then
+              return 0
+            end if
+          end if
+
+        -- 5 : 5, 5 : 7
+        else
+          if not equal(a[i],b[i]) then
+            return 0
+          end if
+        end if
+      end for
+
+      -- Copy after successful unification
+      for i=1 to length(tempVars) do
+        boundVariables = append(boundVariables,tempVars[i])
+      end for
+
+      return 1
+
+    end if
+  else
+    return 0
+  end if
+
+end function
+
+function isVariable(sequence word)
+  integer w = word[1]
+  return w >= 65 and w < 90
+end function
+
+function getVarsToFind(sequence question)
+
+  sequence vars = {}
+
+  for i=1 to length(question) do
+    if isVariable(question[i]) and not isMember(vars,question[i]) then
+      vars = append(vars,question[i])
+    end if
+  end for
+
+  return vars
+
+end function
+
+function getVars(sequence varsToFind)
+
+  sequence vars = {}
+  for i=1 to length(varsToFind) do
+    vars = append(vars,getBoundValue(boundVariables,varsToFind[i]))
+  end for
+
+  return vars
+
+end function
+
+function getBoundValue(sequence boundVariables,sequence toFind)
+  sequence result = {}
+  for i=1 to length(boundVariables) do
+    if equal(boundVariables[i][1],toFind) then
+      result = boundVariables[i]
+      exit
+    end if
+  end for
+  return result
+end function
+
+procedure showResult(sequence result)
+  if equal(result[1],"b") then
+    if result[2] = 1 then
+      puts(1,"true\n")
+    elsif result[2] = 0 then
+      puts(1,"false\n")
+    end if
+  elsif equal(result[1],"v") then
+    for i=1 to length(result[2]) do
+      printf(1,"%s - %s\n",{result[2][i][1],result[2][i][2]})
+    end for
+  else
+    puts(1,"Error\n")
+  end if
+end procedure
+
+procedure addFact(sequence fact)
+  facts = append(facts,{1,fact})
+end procedure
+
+procedure addRule(sequence rule)
+  facts = append(facts,{2,rule})
+end procedure
+
+function isMember(sequence list, sequence element)
+
+  for i=1 to length(list) do
+    if equal(element,list[i]) then
+      return 1
+    end if
+  end for
+
+  return 0
+
+end function
+
+-------------------------------------------------
+
+procedure createDatabase()
+
+  addFact({"woman","mia"})
+  addFact({"woman","jody"})
+  addFact({"woman","yolanda"})
+  addFact({"playsAirGuitar","jody"})
+  addFact({"party"})
+  addFact({"woman","mia"})
+
+  addFact({"loves","vincent","mia"})
+  addFact({"loves","victoria","robin"})
+  addFact({"loves","amanda","gregg"})
+  addFact({"loves","joan","shawna"})
+
+  addFact({"likes","mia","mia"})
+
+  addFact({"car","vw_beatle"})
+  addFact({"car","ford_escort"})
+  addFact({"bike","harley_davidson"})
+  addFact({"red","vw_beatle"})
+  addFact({"red","ford_escort"})
+  addFact({"blue","harley_davidson"})
+
+  addFact({"mortal","plato"})
+  addFact({"human","socrates"})
+
+--   addFact({"fun","X",":-","red","X",",","car","X"})
+--
+--   addFact({"fun","X",":-","blue","X",",","bike","X"})
+--   addFact({"mortal","X",":-","human","X"})
+
+  --addFact({"f","ala"})
+  addFact({"c","ala"})
+  addFact({"r","ala"})
+  addFact({"c","ola"})
+  addFact({"m","ola"})
+  addFact({"f","X",":-","c","X",",","m","X"})
+
+end procedure
+
 procedure rules()
 
-  sequence tests = {}
-  sequence session = {}
-
-  session = append(session,askQuestion({"f","X"}))
-  session = append(session,nextAnswer())
-
-  integer test = equal(session,{{{"X","ola"}},{{"false"}}})
-
-  tests = append(tests,test)
-
-  showTests(tests)
+  --print(1,askQuestion({"f","something"}))
+  print(1,askQuestion({"f","ola"}))
+  --print(1,nextAnswer())
 
 end procedure
 
@@ -125,10 +379,6 @@ procedure onlyFacts()
 end procedure
 
 -----------------------------------------------------------------------------
-
-procedure addFact(sequence fact)
-  facts = append(facts,fact)
-end procedure
 
 procedure showAnswer(sequence answer)
   integer le = length(answer)
@@ -216,10 +466,7 @@ function nextAnswer()
 
 end function
 
-function isVariable(sequence word)
-  integer w = word[1]
-  return w >= 65 and w < 90
-end function
+
 
 function checkHead(sequence rule,sequence question)
   for i=1 to length(question) do
@@ -232,16 +479,7 @@ function checkHead(sequence rule,sequence question)
   return equal(rule[length(question)+1],":-")
 end function
 
-function getBoundValue(sequence toFind)
-  sequence result = {}
-  for i=1 to length(boundVariables) do
-    if equal(boundVariables[i][1],toFind) then
-      result = boundVariables[i]
-      exit
-    end if
-  end for
-  return result
-end function
+
 
 function processLocalQuestions(sequence localQuestions,sequence variablesToFind, integer ruleIndex, integer backtracking)
 
@@ -270,48 +508,114 @@ function processLocalQuestions(sequence localQuestions,sequence variablesToFind,
     if ruleIndex = 0 then
       return {{"false"}}
     elsif ruleIndex = length(localQuestions)+1 then
-      for j=1 to length(variablesToFind) do
-        result = append(result,getBoundValue(variablesToFind[j]))
-      end for
-      return result
+      if length(variablesToFind) = 0 then
+        return {{"true"}}
+      else
+        for j=1 to length(variablesToFind) do
+          result = append(result,getBoundValue(boundVariables,variablesToFind[j]))
+        end for
+        return result
+      end if
+
     end if
 
   end while
 
 end function
 
+
+-- Should only bind variables in head!
+procedure bindVars(sequence rule,sequence question)
+  for i=1 to length(question) do
+    sequence r = rule[i]
+    sequence q = question[i]
+    if isVariable(r) and not isVariable(q) then
+      boundVariables = append(boundVariables,{ r, q })
+    end if
+  end for
+end procedure
+
+function bindQuestion(sequence question)
+  sequence result = {}
+  for i=1 to length(question) do
+    sequence cw = question[i]
+    if isVariable(cw) and (not equal(getBoundValue(boundVariables,cw),{})) then
+      sequence v = getBoundValue(boundVariables,cw)
+      result = append(result,v[2])
+    else
+      result = append(result,cw)
+    end if
+  end for
+  return result
+end function
+
+function bindQuestions(sequence localQuestions)
+  sequence result = {}
+  for i=1 to length(localQuestions) do
+    sequence qst = localQuestions[i]
+    result = append(result,bindQuestion(qst))
+  end for
+  return result
+end function
+
 function getQuestionsAndVars(sequence currentFact)
 
+  -- Get variables to find from last question
   sequence variablesToFind = {}
+  sequence lastQuestion = questions[length(questions)]
+  for j=1 to length(lastQuestion) do
+    sequence cw = lastQuestion[j]
+    if isVariable(cw) then
+      variablesToFind = append(variablesToFind,cw)
+    end if
+  end for
+
   integer index = 1
   for j=1 to length(currentFact) do
-    sequence cf = currentFact[j]
-    if equal(":-",cf) then
+    if equal(":-",currentFact[j]) then
       index = j+1
       exit
-    elsif isVariable(cf) then
-      variablesToFind = append(variablesToFind,cf)
     end if
   end for
 
   sequence localQuestions = slice(currentFact,index,length(currentFact))
   localQuestions = split(localQuestions,{","})
 
+  -- Fill rule questions with bound variables
+  localQuestions = bindQuestions(localQuestions)
+
   return { localQuestions, variablesToFind }
 
 end function
 
+
+
 function processRule(sequence currentFact)
 
   -- Check if rule head matches
-  if not checkHead(currentFact,questions[length(questions)]) then
+  if checkHead(currentFact,questions[length(questions)]) then
+
+
+    -- Bind variables from head
+    -- If variable from head is not bound
+    -- it must be found later
+
+    -- Should only bind variables in head!
+    -- Return variables to find
+    -- Get raw questions
+    -- Process those questions and return
+    -- false or necessary variables
+
+    bindVars(currentFact,questions[length(questions)])
+
+    sequence questionsAndVars = getQuestionsAndVars(currentFact)
+
+    -- Go through all questions
+    return processLocalQuestions(questionsAndVars[1],questionsAndVars[2],1,0)
+
+  else
     return {{"false"}}
   end if
-
-  sequence questionsAndVars = getQuestionsAndVars(currentFact)
-
-  -- Go through all questions
-  return processLocalQuestions(questionsAndVars[1],questionsAndVars[2],1,0)
 
 end function
 
@@ -415,44 +719,7 @@ function searchFromPointer()
 
 end function
 
-procedure createDatabase()
 
-  addFact({"woman","mia"})
-  addFact({"woman","jody"})
-  addFact({"woman","yolanda"})
-  addFact({"playsAirGuitar","jody"})
-  addFact({"party"})
-  addFact({"woman","mia"})
-
-  addFact({"loves","vincent","mia"})
-  addFact({"loves","victoria","robin"})
-  addFact({"loves","amanda","gregg"})
-  addFact({"loves","joan","shawna"})
-
-  addFact({"likes","mia","mia"})
-
-  addFact({"car","vw_beatle"})
-  addFact({"car","ford_escort"})
-  addFact({"bike","harley_davidson"})
-  addFact({"red","vw_beatle"})
-  addFact({"red","ford_escort"})
-  addFact({"blue","harley_davidson"})
-
-  addFact({"mortal","plato"})
-  addFact({"human","socrates"})
-
---   addFact({"fun","X",":-","red","X",",","car","X"})
---
---   addFact({"fun","X",":-","blue","X",",","bike","X"})
---   addFact({"mortal","X",":-","human","X"})
-
-  addFact({"c","ala"})
-  addFact({"r","ala"})
-  addFact({"c","ola"})
-  addFact({"m","ola"})
-  addFact({"f","X",":-","c","X",",","m","X"})
-  
-end procedure
 
 procedure secondSession()
 
